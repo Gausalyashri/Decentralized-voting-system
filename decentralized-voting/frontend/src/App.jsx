@@ -8,44 +8,83 @@ function App() {
   const [proposals, setProposals] = useState([]);
   const [newProposal, setNewProposal] = useState("");
   const [whitelistAddress, setWhitelistAddress] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function connectWallet() {
-    if (!window.ethereum) return alert("Install MetaMask!");
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const accounts = await provider.send("eth_requestAccounts", []);
-    setAccount(accounts[0]);
+    try {
+      if (!window.ethereum) return alert("Install MetaMask!");
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      setAccount(accounts[0]);
+      setError("");
+    } catch (err) {
+      setError("Failed to connect wallet: " + err.message);
+    }
   }
 
   async function loadProposals() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const voting = new ethers.Contract(contract.address, contract.abi, provider);
-    const data = await voting.getProposals();
-    setProposals(data);
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const voting = new ethers.Contract(contract.address, contract.abi, provider);
+      const data = await voting.getProposals();
+      setProposals(data);
+      setError("");
+    } catch (err) {
+      setError("Error loading proposals: " + err.message);
+    }
   }
 
   async function createProposal() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner();
-    const voting = new ethers.Contract(contract.address, contract.abi, signer);
-    await voting.createProposal(newProposal);
-    setNewProposal("");
-    loadProposals();
+    try {
+      setLoading(true);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const voting = new ethers.Contract(contract.address, contract.abi, signer);
+      const tx = await voting.createProposal(newProposal);
+      await tx.wait();
+      setNewProposal("");
+      loadProposals();
+      setError("");
+    } catch (err) {
+      setError("Error creating proposal: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function addWhitelist() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner();
-    const voting = new ethers.Contract(contract.address, contract.abi, signer);
-    await voting.addToWhitelist(whitelistAddress);
-    setWhitelistAddress("");
+    try {
+      setLoading(true);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const voting = new ethers.Contract(contract.address, contract.abi, signer);
+      const tx = await voting.addToWhitelist(whitelistAddress);
+      await tx.wait();
+      setWhitelistAddress("");
+      setError("");
+    } catch (err) {
+      setError("Error adding whitelist: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function vote(id) {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner();
-    const voting = new ethers.Contract(contract.address, contract.abi, signer);
-    await voting.vote(id);
-    loadProposals();
+    try {
+      setLoading(true);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const voting = new ethers.Contract(contract.address, contract.abi, signer);
+      const tx = await voting.vote(id);
+      await tx.wait();
+      loadProposals();
+      setError("");
+    } catch (err) {
+      setError("Error voting: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -67,6 +106,18 @@ function App() {
         <p className="mt-2">Connected: {account}</p>
       )}
 
+      {error && (
+        <div className="bg-red-100 text-red-700 p-2 mt-4 rounded">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="bg-yellow-100 text-yellow-700 p-2 mt-4 rounded">
+          Transaction pending...
+        </div>
+      )}
+
       <div className="mt-6">
         <h2 className="font-semibold">Create Proposal</h2>
         <input
@@ -78,6 +129,7 @@ function App() {
         <button
           onClick={createProposal}
           className="bg-green-500 text-white px-4 py-2 rounded"
+          disabled={loading}
         >
           Create
         </button>
@@ -94,12 +146,13 @@ function App() {
         <button
           onClick={addWhitelist}
           className="bg-purple-500 text-white px-4 py-2 rounded"
+          disabled={loading}
         >
           Add
         </button>
       </div>
 
-      <ProposalList proposals={proposals} onVote={vote} />
+      <ProposalList proposals={proposals} onVote={vote} loading={loading} />
     </div>
   );
 }
