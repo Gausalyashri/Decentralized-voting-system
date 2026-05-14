@@ -1,4 +1,4 @@
-function ProposalList({ proposals, onVote }) {
+function ProposalList({ proposals, onVote, loading }) {
   return (
     <ul className="mt-4">
       {proposals.map((p, i) => (
@@ -7,6 +7,7 @@ function ProposalList({ proposals, onVote }) {
           <button
             onClick={() => onVote(i)}
             className="bg-blue-600 text-white px-3 py-1 rounded"
+            disabled={loading}
           >
             Vote
           </button>
@@ -17,4 +18,3 @@ function ProposalList({ proposals, onVote }) {
 }
 
 export default ProposalList;
- 
